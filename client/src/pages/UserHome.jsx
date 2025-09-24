@@ -115,15 +115,21 @@ export default function UserHome() {
   </button>
   <button
     style={tabButtonStyle(activeTab === "profile")}
-    onClick={() => setActiveTab("profile")}
+    onClick={() => navigate("/alumniprofile")}
   >
     Profile
   </button>
   <button
-    style={tabButtonStyle(activeTab === "messages")}
+    style={tabButtonStyle(activeTab === "refer")}
     onClick={() => navigate("/refer")}
   >
     Refer
+  </button>
+  <button
+    style={tabButtonStyle(activeTab === "job")}
+    onClick={() => navigate("/jobalumni")}
+  >
+    Apply Job
   </button>
 </div>
 

@@ -8,6 +8,8 @@ import AlumniRegistrationForm from "./pages/AlumniRegistrationForm";
 import UserHome from "./pages/UserHome";
 import InstitutionalDashboard from "./pages/InstitutionalDashboard";
 import Message from "./pages/Message";
+import JobPortal from "./pages/JobPortal";
+import AlumniProfile from "./pages/AlumniProfile";
 export default function App() {
   return <BrowserRouter>
     <Header/>
@@ -20,6 +22,8 @@ export default function App() {
       <Route path="/clghome" element={<InstitutionalDashboard/>} />
       <Route path="/message" element={<Message/>} />
       <Route path="/refer" element={<Message/>} />
+      <Route path="/jobalumni" element={<JobPortal/>} />
+       <Route path="/alumniprofile" element={<AlumniProfile/>} />
     </Routes>
   </BrowserRouter>;
 }
