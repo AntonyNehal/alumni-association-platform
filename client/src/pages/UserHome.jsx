@@ -2,13 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-
+import { useNavigate } from "react-router-dom";
 export default function UserHome() {
   const [announcements, setAnnouncements] = useState([]);
   const [donations, setDonations] = useState([]);
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [donationAmount, setDonationAmount] = useState('');
-
+  const navigate = useNavigate();
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -83,7 +83,19 @@ export default function UserHome() {
   const inputStyle = { width: '100%', padding: '0.75rem', border: '2px solid #e5e7eb', borderRadius: '0.5rem', fontSize: '1rem', marginBottom: '1rem', boxSizing: 'border-box' };
   const modalStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 };
   const modalContentStyle = { backgroundColor: 'white', borderRadius: '1rem', padding: '2rem', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflow: 'auto' };
+ const [activeTab, setActiveTab] = useState("messages");
 
+  const tabButtonStyle = (isActive) => ({
+    padding: "0.75rem 1.5rem",
+    margin: "0 0.5rem",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: isActive ? "#2563eb" : "#e5e7eb",
+    color: isActive ? "#fff" : "#374151",
+    fontWeight: "bold",
+    cursor: "pointer",
+    transition: "all 0.3s ease",
+  });
   return (
     <div style={containerStyle}>
       {/* Header */}
@@ -94,6 +106,21 @@ export default function UserHome() {
           <p style={{ fontSize: '1.3rem', opacity: 0.9 }}>Stay connected with CEC</p>
         </div>
       </div>
+      <div style={{ textAlign: "center", margin: "2rem" }}>
+  <button
+    style={tabButtonStyle(activeTab === "messages")}
+    onClick={() => navigate("/message")}
+  >
+    Message
+  </button>
+  <button
+    style={tabButtonStyle(activeTab === "profile")}
+    onClick={() => setActiveTab("profile")}
+  >
+    Profile
+  </button>
+</div>
+
 
       {/* Events & Announcements */}
       <div style={sectionStyle}>
