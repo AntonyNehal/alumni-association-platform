@@ -237,7 +237,7 @@ export default function AlumniRegistrationForm() {
             {errors.department && <p className="text-red-400 text-base mt-1">{errors.department}</p>}
           </div>
 
-          {/* Submit */}
+     
           <div className="col-span-1 md:col-span-2 mt-6">
             <button
               type="submit"
