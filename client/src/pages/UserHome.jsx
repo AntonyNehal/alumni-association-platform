@@ -3,11 +3,17 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigate } from "react-router-dom";
+import { useAuth } from '../context/AuthContext'; // Add this import
+import { doc, getDoc } from 'firebase/firestore'; // Add getDoc import
+
+// Add this state near your other useState declarations
 export default function UserHome() {
   const [announcements, setAnnouncements] = useState([]);
   const [donations, setDonations] = useState([]);
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [donationAmount, setDonationAmount] = useState('');
+  const [currentUserName, setCurrentUserName] = useState('');
+const { currentUser } = useAuth(); // Add this to get current user
   const navigate = useNavigate();
   useEffect(() => {
     const fetchData = async () => {
@@ -55,7 +61,29 @@ export default function UserHome() {
     setSelectedDonation(null);
     setDonationAmount('');
   };
+useEffect(() => {
+  const fetchUserName = async () => {
+    if (currentUser) {
+      try {
+        // Fetch from alumni collection to get the user's name
+        const alumniDocRef = doc(db, "alumni", currentUser.uid);
+        const alumniDocSnap = await getDoc(alumniDocRef);
+        
+        if (alumniDocSnap.exists()) {
+          const alumniData = alumniDocSnap.data();
+          setCurrentUserName(alumniData.name || currentUser.displayName || 'Alumni');
+        } else {
+          setCurrentUserName(currentUser.displayName || 'Alumni');
+        }
+      } catch (err) {
+        console.error('Error fetching user name:', err);
+        setCurrentUserName('Alumni');
+      }
+    }
+  };
 
+  fetchUserName();
+}, [currentUser]);
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -102,7 +130,9 @@ export default function UserHome() {
       <div style={headerStyle}>
         <div style={headerDecorStyle}></div>
         <div style={{ position: 'relative', zIndex: 2 }}>
-          <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem' }}>Welcome Back, Alumni!</h1>
+         <h1 style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+  Welcome Back, {currentUserName || 'Alumni'}!
+</h1>
           <p style={{ fontSize: '1.3rem', opacity: 0.9 }}>Stay connected with CEC</p>
         </div>
       </div>

@@ -23,6 +23,9 @@ export default function InstitutionalDashboard() {
   const [donations, setDonations] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState({}); // jobId -> array of applications
+  const [interestedAlumni, setInterestedAlumni] = useState([]);
+  const [filteredAlumni, setFilteredAlumni] = useState([]);
+  const [searchDomain, setSearchDomain] = useState("");
 
   const [newAnnouncement, setNewAnnouncement] = useState({
     eventName: "",
@@ -52,14 +55,57 @@ export default function InstitutionalDashboard() {
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
   const [loadingDonations, setLoadingDonations] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [loadingAlumni, setLoadingAlumni] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const defaultProfilePicture = "https://cdn-icons-png.flaticon.com/512/12225/12225935.png";
+
+  const engineeringDomains = [
+    "Artificial Intelligence & Machine Learning",
+    "Cybersecurity",
+    "Data Science & Analytics",
+    "Software Development",
+    "Web Development",
+    "Mobile App Development",
+    "Cloud Computing",
+    "DevOps",
+    "Blockchain Technology",
+    "IoT",
+    "Robotics & Automation",
+    "Computer Networks",
+    "Database Management",
+    "Game Development",
+    "UI/UX Design",
+    "Digital Marketing",
+    "Product Management",
+    "Quality Assurance",
+    "System Architecture",
+    "Research & Development",
+    "Academia & Teaching",
+    "Consulting",
+    "Entrepreneurship",
+    "Other",
+  ];
 
   // --- Fetch all data ---
   useEffect(() => {
     fetchAnnouncements();
     fetchDonations();
     fetchJobs();
+    fetchInterestedAlumni();
   }, []);
+
+  // Filter alumni based on search
+  useEffect(() => {
+    if (!searchDomain.trim()) {
+      setFilteredAlumni(interestedAlumni);
+    } else {
+      const filtered = interestedAlumni.filter(alumni => 
+        alumni.workingDomain?.toLowerCase().includes(searchDomain.toLowerCase())
+      );
+      setFilteredAlumni(filtered);
+    }
+  }, [searchDomain, interestedAlumni]);
 
   // --- Fetch Announcements ---
   async function fetchAnnouncements() {
@@ -104,6 +150,25 @@ export default function InstitutionalDashboard() {
       setApplications(apps);
     } finally {
       setLoadingJobs(false);
+    }
+  }
+
+  // --- Fetch Interested Alumni ---
+  async function fetchInterestedAlumni() {
+    setLoadingAlumni(true);
+    try {
+      const q = query(
+        collection(db, "alumniProfiles"), 
+        where("hostingInterest", "==", "yes")
+      );
+      const snap = await getDocs(q);
+      const alumniData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setInterestedAlumni(alumniData);
+      setFilteredAlumni(alumniData);
+    } catch (error) {
+      console.error("Error fetching interested alumni:", error);
+    } finally {
+      setLoadingAlumni(false);
     }
   }
 
@@ -275,6 +340,17 @@ export default function InstitutionalDashboard() {
   const textareaStyle = { width: "100%", padding: "0.75rem", border: "2px solid #e5e7eb", borderRadius: "0.5rem", fontSize: "1rem", marginBottom: "1rem", resize: "vertical" };
   const buttonStyle = { backgroundColor: "#3b82f6", color: "white", padding: "0.75rem 1.5rem", border: "none", borderRadius: "0.5rem", cursor: "pointer", fontWeight: "600", marginTop: "0.5rem" };
   const deleteButtonStyle = { backgroundColor: "#ef4444", color: "white", padding: "0.5rem 1rem", border: "none", borderRadius: "0.375rem", cursor: "pointer", marginLeft: "1rem" };
+  const alumniCardStyle = { 
+    backgroundColor: "white", 
+    borderRadius: "1rem", 
+    padding: "1.5rem", 
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)", 
+    margin: "1rem", 
+    border: "1px solid #e5e7eb",
+    display: "flex",
+    alignItems: "center",
+    gap: "1rem"
+  };
 
   return (
     <div style={containerStyle}>
@@ -288,6 +364,7 @@ export default function InstitutionalDashboard() {
         <button style={tabButtonStyle(activeTab === "announcements")} onClick={() => setActiveTab("announcements")}>Event Announcements</button>
         <button style={tabButtonStyle(activeTab === "donations")} onClick={() => setActiveTab("donations")}>Donation Campaigns</button>
         <button style={tabButtonStyle(activeTab === "jobs")} onClick={() => setActiveTab("jobs")}>Job Opportunities</button>
+        <button style={tabButtonStyle(activeTab === "techtalk")} onClick={() => setActiveTab("techtalk")}>Alumni Interested in Events</button>
       </div>
 
       <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
@@ -406,12 +483,107 @@ export default function InstitutionalDashboard() {
                 <h4>Applications ({applications[j.id]?.length || 0})</h4>
                 {applications[j.id]?.map((app) => (
                   <div key={app.id} style={{ marginBottom: "0.5rem", padding: "0.5rem", border: "1px solid #e5e7eb", borderRadius: "0.5rem" }}>
-  <p><b>Name:</b> {app.alumniName}</p>
-  <p><b>Email:</b> {app.alumniEmail}</p>
-  <a href={app.fileUrl} target="_blank" rel="noreferrer">View Resume</a>
-</div>
-
+                    <p><b>Name:</b> {app.alumniName}</p>
+                    <p><b>Email:</b> {app.alumniEmail}</p>
+                    <a href={app.resumeUrl} target="_blank" rel="noreferrer">View Resume</a>
+                  </div>
                 ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Alumni Interested in Events Tab */}
+        {activeTab === "techtalk" && (
+          <div>
+            <div style={cardStyle}>
+              <h2>Alumni Interested in Hosting Events ({filteredAlumni.length})</h2>
+              <p style={{ color: "#6b7280", marginBottom: "1rem" }}>
+                These alumni have expressed interest in hosting tech talks and events at the college.
+              </p>
+              
+              {/* Search Bar */}
+              <div style={{ marginBottom: "2rem" }}>
+                <input
+                  type="text"
+                  placeholder="Search by working domain (e.g., Cybersecurity, AI, Web Development...)"
+                  value={searchDomain}
+                  onChange={(e) => setSearchDomain(e.target.value)}
+                  style={inputStyle}
+                />
+                <select
+                  value={searchDomain}
+                  onChange={(e) => setSearchDomain(e.target.value)}
+                  style={{ ...inputStyle, marginTop: "0.5rem" }}
+                >
+                  <option value="">All Domains</option>
+                  {engineeringDomains.map((domain) => (
+                    <option key={domain} value={domain}>{domain}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {loadingAlumni && <p>Loading alumni...</p>}
+            
+            {filteredAlumni.length === 0 && !loadingAlumni && (
+              <div style={cardStyle}>
+                <p>No alumni found interested in hosting events{searchDomain && ` in ${searchDomain}`}.</p>
+              </div>
+            )}
+
+            {filteredAlumni.map((alumni) => (
+              <div key={alumni.id} style={alumniCardStyle}>
+                <div style={{ flexShrink: 0 }}>
+                  <img
+                    src={alumni.profilePicture || defaultProfilePicture}
+                    alt={alumni.name || "Alumni"}
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "2px solid #e5e7eb"
+                    }}
+                    onError={(e) => { e.target.src = defaultProfilePicture; }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.25rem", fontWeight: "bold" }}>
+                    {alumni.name || "Name not provided"}
+                  </h3>
+                  <p style={{ margin: "0.25rem 0", color: "#374151" }}>
+                    <b>Email:</b> {alumni.email || "Email not provided"}
+                  </p>
+                  <p style={{ margin: "0.25rem 0", color: "#374151" }}>
+                    <b>Position:</b> {alumni.workPosition || "Position not provided"}
+                  </p>
+                  <p style={{ margin: "0.25rem 0", color: "#374151" }}>
+                    <b>Domain:</b> {alumni.workingDomain || "Domain not provided"}
+                  </p>
+                  <p style={{ margin: "0.25rem 0", color: "#374151" }}>
+                    <b>Location:</b> {alumni.location || "Location not provided"}
+                  </p>
+                  <p style={{ margin: "0.25rem 0", color: "#374151" }}>
+                    <b>Experience:</b> {alumni.experience || "0"} years
+                  </p>
+                </div>
+                <div style={{ flexShrink: 0 }}>
+                  <button 
+                    style={{
+                      ...buttonStyle,
+                      backgroundColor: "#10b981",
+                      padding: "0.5rem 1rem",
+                      fontSize: "0.9rem"
+                    }}
+                    onClick={() => {
+                      // You can implement contact functionality here
+                      window.open(`mailto:${alumni.email}?subject=Tech Talk Invitation&body=Hello ${alumni.name}, we would like to invite you to host a tech talk at our college.`);
+                    }}
+                  >
+                    Contact
+                  </button>
+                </div>
               </div>
             ))}
           </div>
