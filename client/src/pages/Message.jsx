@@ -7,9 +7,11 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../firebase"; // make sure your firebase.js exports db
+import { db } from "../firebase";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Message() {
+  const { currentUser } = useAuth(); // ✅ get current user
   const [activeView, setActiveView] = useState("groups"); // 'groups' or 'chat'
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [newMessage, setNewMessage] = useState("");
@@ -17,16 +19,14 @@ export default function Message() {
   const [yearGroups, setYearGroups] = useState([]);
   const [messages, setMessages] = useState([]);
 
-  // ✅ Auto-generate groups from users collection
+  // ✅ Load groups from alumni collection
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "users"), (snap) => {
+    const unsubscribe = onSnapshot(collection(db, "alumni"), (snap) => {
       const users = snap.docs.map((doc) => doc.data());
-
       const deptMap = {};
       const yearMap = {};
 
       users.forEach((u) => {
-        // Department groups
         if (u.department) {
           if (!deptMap[u.department]) {
             deptMap[u.department] = {
@@ -39,17 +39,19 @@ export default function Message() {
           deptMap[u.department].memberCount += 1;
         }
 
-        // Year/batch groups
-        if (u.batch) {
-          if (!yearMap[u.batch]) {
-            yearMap[u.batch] = {
-              id: `batch-${u.batch}`,
-              name: u.batch,
+        if (u.department && u.batch) {
+          const key = `${u.department}-${u.batch}`;
+          if (!yearMap[key]) {
+            yearMap[key] = {
+              id: `batch-${u.department}-${u.batch}`,
+              name: `${u.department} - ${u.batch}`,
               type: "year",
+              department: u.department,
+              batch: u.batch,
               memberCount: 0,
             };
           }
-          yearMap[u.batch].memberCount += 1;
+          yearMap[key].memberCount += 1;
         }
       });
 
@@ -65,23 +67,57 @@ export default function Message() {
     if (!selectedGroup) return;
 
     const q = query(
-      collection(db, "groups", selectedGroup.id, "messages"), // 🔑 store under "groups/{groupId}/messages"
+      collection(db, "groups", selectedGroup.id, "messages"),
       orderBy("timestamp", "asc")
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        isOwn: doc.data().sender === "You", // replace with currentUser later
-      }));
+      const msgs = snap.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          isOwn: currentUser && data.senderId === currentUser.uid, // check currentUser
+        };
+      });
       setMessages(msgs);
     });
 
     return () => unsubscribe();
-  }, [selectedGroup]);
+  }, [selectedGroup, currentUser]);
 
-  // Styles (kept exactly the same as your code)
+  const handleGroupClick = (group) => {
+    setSelectedGroup(group);
+    setActiveView("chat");
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedGroup || !currentUser) return;
+
+    await addDoc(collection(db, "groups", selectedGroup.id, "messages"), {
+      sender: currentUser.displayName || currentUser.email,
+      senderId: currentUser.uid,
+      content: newMessage,
+      timestamp: serverTimestamp(),
+    });
+
+    setNewMessage("");
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const backToGroups = () => {
+    setActiveView("groups");
+    setSelectedGroup(null);
+    setMessages([]);
+  };
+
+  // ===== Styles =====
   const containerStyle = {
     minHeight: "100vh",
     backgroundColor: "#f8fafc",
@@ -167,35 +203,6 @@ export default function Message() {
     transition: "all 0.3s ease",
   };
 
-  const handleGroupClick = (group) => {
-    setSelectedGroup(group);
-    setActiveView("chat");
-  };
-
-  // ✅ Send message to Firestore
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedGroup) return;
-
-    await addDoc(collection(db, "groups", selectedGroup.id, "messages"), {
-      sender: "You", // replace with logged-in user later
-      content: newMessage,
-      timestamp: serverTimestamp(),
-    });
-
-    setNewMessage("");
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleSendMessage();
-    }
-  };
-
-  const backToGroups = () => {
-    setActiveView("groups");
-    setSelectedGroup(null);
-  };
-
   return (
     <div style={containerStyle}>
       {/* Sidebar */}
@@ -232,7 +239,8 @@ export default function Message() {
                 {selectedGroup.name}
               </h3>
               <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                {selectedGroup.memberCount} members
+                {selectedGroup.memberCount} members •{" "}
+                {selectedGroup.type === "department" ? "Department" : "Batch"} Group
               </p>
             </div>
           )}
@@ -241,60 +249,26 @@ export default function Message() {
         {/* Groups List */}
         {activeView === "groups" && (
           <div style={{ flex: 1, overflow: "auto" }}>
+            {/* Department Groups */}
             <div style={{ padding: "0 1.5rem", marginBottom: "1rem" }}>
-              <h3
-                style={{
-                  fontSize: "1rem",
-                  fontWeight: "600",
-                  color: "#374151",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#374151", marginBottom: "0.5rem" }}>
                 Department Groups
               </h3>
             </div>
-
             {departmentGroups.map((group) => (
               <div
                 key={group.id}
                 style={groupItemStyle}
                 onClick={() => handleGroupClick(group)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f8fafc";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "white";
-                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f8fafc")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "white")}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                   <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        marginBottom: "0.25rem",
-                      }}
-                    >
-                      <h4
-                        style={{
-                          fontSize: "0.9rem",
-                          fontWeight: "600",
-                          color: "#374151",
-                          margin: 0,
-                        }}
-                      >
-                        {group.name}
-                      </h4>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#6b7280",
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                      }}
-                    >
+                    <h4 style={{ fontSize: "0.9rem", fontWeight: "600", color: "#374151", margin: 0 }}>
+                      {group.name}
+                    </h4>
+                    <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0, marginBottom: "0.25rem" }}>
                       {group.memberCount} members
                     </p>
                   </div>
@@ -302,60 +276,26 @@ export default function Message() {
               </div>
             ))}
 
+            {/* Year Groups */}
             <div style={{ padding: "0 1.5rem", margin: "1.5rem 0 1rem" }}>
-              <h3
-                style={{
-                  fontSize: "1rem",
-                  fontWeight: "600",
-                  color: "#374151",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <h3 style={{ fontSize: "1rem", fontWeight: "600", color: "#374151", marginBottom: "0.5rem" }}>
                 Year Groups
               </h3>
             </div>
-
             {yearGroups.map((group) => (
               <div
                 key={group.id}
                 style={groupItemStyle}
                 onClick={() => handleGroupClick(group)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f8fafc";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "white";
-                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f8fafc")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "white")}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                   <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        marginBottom: "0.25rem",
-                      }}
-                    >
-                      <h4
-                        style={{
-                          fontSize: "0.9rem",
-                          fontWeight: "600",
-                          color: "#374151",
-                          margin: 0,
-                        }}
-                      >
-                        {group.name}
-                      </h4>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#6b7280",
-                        margin: 0,
-                        marginBottom: "0.25rem",
-                      }}
-                    >
+                    <h4 style={{ fontSize: "0.9rem", fontWeight: "600", color: "#374151", margin: 0 }}>
+                      {group.name}
+                    </h4>
+                    <p style={{ fontSize: "0.75rem", color: "#6b7280", margin: 0, marginBottom: "0.25rem" }}>
                       {group.memberCount} members
                     </p>
                   </div>
@@ -369,114 +309,35 @@ export default function Message() {
       {/* Chat Area */}
       <div style={chatAreaStyle}>
         {activeView === "groups" ? (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexDirection: "column",
-              color: "#6b7280",
-            }}
-          >
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", color: "#6b7280" }}>
             <div style={{ textAlign: "center" }}>
-              <h2
-                style={{
-                  fontSize: "1.5rem",
-                  fontWeight: "600",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <h2 style={{ fontSize: "1.5rem", fontWeight: "600", marginBottom: "0.5rem" }}>
                 Welcome to Alumni Community
               </h2>
-              <p style={{ fontSize: "1rem" }}>
-                Select a group to start messaging with your fellow alumni
-              </p>
+              <p style={{ fontSize: "1rem" }}>Select a group to start messaging with your fellow alumni</p>
             </div>
           </div>
         ) : (
           <>
-            {/* Chat Header */}
-            <div
-              style={{
-                padding: "1rem 1.5rem",
-                backgroundColor: "white",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: "600",
-                    color: "#374151",
-                    margin: 0,
-                  }}
-                >
-                  {selectedGroup?.name}
-                </h3>
-                <p style={{ fontSize: "0.875rem", color: "#6b7280", margin: 0 }}>
-                  {selectedGroup?.memberCount} members •{" "}
-                  {selectedGroup?.type === "department" ? "Department" : "Batch"} Group
-                </p>
-              </div>
-            </div>
-
             {/* Messages Area */}
-            <div
-              style={{
-                flex: 1,
-                overflow: "auto",
-                padding: "1rem 0",
-                backgroundColor: "#f8fafc",
-              }}
-            >
+            <div style={{ flex: 1, overflow: "auto", padding: "1rem 1rem", backgroundColor: "#f8fafc" }}>
               {messages.map((message) => (
                 <div key={message.id} style={messageStyle(message.isOwn)}>
                   {!message.isOwn && (
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: "600",
-                        marginBottom: "0.25rem",
-                        color: "#6b7280",
-                      }}
-                    >
+                    <div style={{ fontSize: "0.75rem", fontWeight: "600", marginBottom: "0.25rem", color: "#6b7280" }}>
                       {message.sender}
                     </div>
                   )}
                   <div style={{ marginBottom: "0.25rem" }}>{message.content}</div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      opacity: 0.7,
-                      textAlign: "right",
-                    }}
-                  >
-                    {message.timestamp?.toDate
-                      ? message.timestamp.toDate().toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : ""}
+                  <div style={{ fontSize: "0.75rem", opacity: 0.7, textAlign: "right" }}>
+                    {message.timestamp?.toDate ? message.timestamp.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Message Input */}
-            <div
-              style={{
-                padding: "1rem 1.5rem",
-                backgroundColor: "white",
-                borderTop: "1px solid #e5e7eb",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
+            {/* Input */}
+            <div style={{ padding: "1rem 1.5rem", backgroundColor: "white", borderTop: "1px solid #e5e7eb", display: "flex", alignItems: "center" }}>
               <input
                 type="text"
                 value={newMessage}
@@ -488,12 +349,8 @@ export default function Message() {
               <button
                 onClick={handleSendMessage}
                 style={sendButtonStyle}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#2563eb";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "#3b82f6";
-                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#2563eb")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#3b82f6")}
               >
                 Send
               </button>
