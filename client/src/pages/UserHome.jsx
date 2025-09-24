@@ -162,7 +162,28 @@ export default function UserHome() {
   </div>
 </div>
 
-
+      
+      {/* 🔹 Post a Referral Section */}
+      <div style={sectionStyle}>
+        <h2 style={sectionTitleStyle}>Post a Referral</h2>
+        <div style={gridStyle}>
+          <div style={cardStyle}>
+            <div style={cardContentStyle}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '1rem' }}>
+                Refer a Job Opportunity
+              </h3>
+              <p style={{ color: '#6b7280', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '1rem' }}>
+                Help alumni by posting job referrals and opportunities from your organization or network.
+              </p>
+              <input type="text" placeholder="Job Title" style={inputStyle} />
+              <input type="text" placeholder="Company" style={inputStyle} />
+              <textarea placeholder="Job Description" style={{ ...inputStyle, height: "100px" }} />
+              <button style={buttonStyle}>Post Referral</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       {/* Donations */}
       <div style={{ ...sectionStyle, backgroundColor: '#f8fafc', paddingTop: '3rem' }}>
         <h2 style={sectionTitleStyle}>Support Our Initiatives</h2>

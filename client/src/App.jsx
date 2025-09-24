@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import AlumniRegistrationForm from "./pages/AlumniRegistrationForm";
 import UserHome from "./pages/UserHome";
 import InstitutionalDashboard from "./pages/InstitutionalDashboard";
+import Message from "./pages/Message";
 export default function App() {
   return <BrowserRouter>
     <Header/>
@@ -17,6 +18,7 @@ export default function App() {
       <Route path="/alumniform" element={<AlumniRegistrationForm/>} />
       <Route path="/userhome" element={<UserHome/>} />
       <Route path="/clghome" element={<InstitutionalDashboard/>} />
+      <Route path="/message" element={<Message/>} />
     </Routes>
   </BrowserRouter>;
 }
