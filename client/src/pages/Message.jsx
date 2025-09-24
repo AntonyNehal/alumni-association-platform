@@ -17,13 +17,44 @@ export default function Message() {
   const [yearGroups, setYearGroups] = useState([]);
   const [messages, setMessages] = useState([]);
 
-  // ✅ Fetch groups (departments + years) from Firestore
+  // ✅ Auto-generate groups from users collection
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "communityGroups"), (snap) => {
-      const groups = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const unsubscribe = onSnapshot(collection(db, "users"), (snap) => {
+      const users = snap.docs.map((doc) => doc.data());
 
-      setDepartmentGroups(groups.filter((g) => g.type === "department"));
-      setYearGroups(groups.filter((g) => g.type === "year" || g.type === "batch"));
+      const deptMap = {};
+      const yearMap = {};
+
+      users.forEach((u) => {
+        // Department groups
+        if (u.department) {
+          if (!deptMap[u.department]) {
+            deptMap[u.department] = {
+              id: `dept-${u.department}`,
+              name: u.department,
+              type: "department",
+              memberCount: 0,
+            };
+          }
+          deptMap[u.department].memberCount += 1;
+        }
+
+        // Year/batch groups
+        if (u.batch) {
+          if (!yearMap[u.batch]) {
+            yearMap[u.batch] = {
+              id: `batch-${u.batch}`,
+              name: u.batch,
+              type: "year",
+              memberCount: 0,
+            };
+          }
+          yearMap[u.batch].memberCount += 1;
+        }
+      });
+
+      setDepartmentGroups(Object.values(deptMap));
+      setYearGroups(Object.values(yearMap));
     });
 
     return () => unsubscribe();
@@ -34,7 +65,7 @@ export default function Message() {
     if (!selectedGroup) return;
 
     const q = query(
-      collection(db, "communityGroups", selectedGroup.id, "messages"),
+      collection(db, "groups", selectedGroup.id, "messages"), // 🔑 store under "groups/{groupId}/messages"
       orderBy("timestamp", "asc")
     );
 
@@ -42,7 +73,7 @@ export default function Message() {
       const msgs = snap.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        isOwn: doc.data().sender === "You", // replace with logged-in user check later
+        isOwn: doc.data().sender === "You", // replace with currentUser later
       }));
       setMessages(msgs);
     });
@@ -50,7 +81,7 @@ export default function Message() {
     return () => unsubscribe();
   }, [selectedGroup]);
 
-  // Styles (unchanged)
+  // Styles (kept exactly the same as your code)
   const containerStyle = {
     minHeight: "100vh",
     backgroundColor: "#f8fafc",
@@ -145,14 +176,11 @@ export default function Message() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedGroup) return;
 
-    await addDoc(
-      collection(db, "communityGroups", selectedGroup.id, "messages"),
-      {
-        sender: "You", // replace later with currentUser
-        content: newMessage,
-        timestamp: serverTimestamp(),
-      }
-    );
+    await addDoc(collection(db, "groups", selectedGroup.id, "messages"), {
+      sender: "You", // replace with logged-in user later
+      content: newMessage,
+      timestamp: serverTimestamp(),
+    });
 
     setNewMessage("");
   };
@@ -258,22 +286,6 @@ export default function Message() {
                       >
                         {group.name}
                       </h4>
-                      {group.unreadCount > 0 && (
-                        <span
-                          style={{
-                            backgroundColor: "#ef4444",
-                            color: "white",
-                            fontSize: "0.75rem",
-                            fontWeight: "600",
-                            padding: "0.125rem 0.375rem",
-                            borderRadius: "0.75rem",
-                            minWidth: "1.25rem",
-                            textAlign: "center",
-                          }}
-                        >
-                          {group.unreadCount}
-                        </span>
-                      )}
                     </div>
                     <p
                       style={{
@@ -285,13 +297,7 @@ export default function Message() {
                     >
                       {group.memberCount} members
                     </p>
-                    <p style={{ fontSize: "0.8rem", color: "#9ca3af", margin: 0 }}>
-                      {group.lastMessage}
-                    </p>
                   </div>
-                  <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                    {group.lastMessageTime}
-                  </span>
                 </div>
               </div>
             ))}
@@ -341,22 +347,6 @@ export default function Message() {
                       >
                         {group.name}
                       </h4>
-                      {group.unreadCount > 0 && (
-                        <span
-                          style={{
-                            backgroundColor: "#ef4444",
-                            color: "white",
-                            fontSize: "0.75rem",
-                            fontWeight: "600",
-                            padding: "0.125rem 0.375rem",
-                            borderRadius: "0.75rem",
-                            minWidth: "1.25rem",
-                            textAlign: "center",
-                          }}
-                        >
-                          {group.unreadCount}
-                        </span>
-                      )}
                     </div>
                     <p
                       style={{
@@ -368,13 +358,7 @@ export default function Message() {
                     >
                       {group.memberCount} members
                     </p>
-                    <p style={{ fontSize: "0.8rem", color: "#9ca3af", margin: 0 }}>
-                      {group.lastMessage}
-                    </p>
                   </div>
-                  <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>
-                    {group.lastMessageTime}
-                  </span>
                 </div>
               </div>
             ))}

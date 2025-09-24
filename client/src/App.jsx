@@ -19,6 +19,7 @@ export default function App() {
       <Route path="/userhome" element={<UserHome/>} />
       <Route path="/clghome" element={<InstitutionalDashboard/>} />
       <Route path="/message" element={<Message/>} />
+      <Route path="/refer" element={<Message/>} />
     </Routes>
   </BrowserRouter>;
 }
