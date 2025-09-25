@@ -10,6 +10,8 @@ import InstitutionalDashboard from "./pages/InstitutionalDashboard";
 import Message from "./pages/Message";
 import JobPortal from "./pages/JobPortal";
 import AlumniProfile from "./pages/AlumniProfile";
+import PersonalChat from "./pages/PersonalChat";
+import ReferPage from "./pages/ReferPage";
 export default function App() {
   return <BrowserRouter>
     <Header/>
@@ -21,9 +23,10 @@ export default function App() {
       <Route path="/userhome" element={<UserHome/>} />
       <Route path="/clghome" element={<InstitutionalDashboard/>} />
       <Route path="/message" element={<Message/>} />
-      <Route path="/refer" element={<Message/>} />
+      <Route path="/refer" element={<ReferPage/>} />
       <Route path="/jobalumni" element={<JobPortal/>} />
        <Route path="/alumniprofile" element={<AlumniProfile/>} />
+       <Route path="/personal-chat" element={<PersonalChat/>} />
     </Routes>
   </BrowserRouter>;
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useNavigate } from "react-router-dom"; // Add this import
 import {
   collection,
   addDoc,
@@ -17,6 +18,7 @@ import axios from "axios";
 
 export default function InstitutionalDashboard() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate(); // Add this hook
   const [activeTab, setActiveTab] = useState("announcements");
 
   const [announcements, setAnnouncements] = useState([]);
@@ -57,6 +59,8 @@ export default function InstitutionalDashboard() {
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [loadingAlumni, setLoadingAlumni] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [jobReferrals, setJobReferrals] = useState([]);
+  const [loadingJobReferrals, setLoadingJobReferrals] = useState(false);
 
   const defaultProfilePicture = "https://cdn-icons-png.flaticon.com/512/12225/12225935.png";
 
@@ -93,6 +97,7 @@ export default function InstitutionalDashboard() {
     fetchDonations();
     fetchJobs();
     fetchInterestedAlumni();
+    fetchJobReferrals();
   }, []);
 
   // Filter alumni based on search
@@ -118,6 +123,53 @@ export default function InstitutionalDashboard() {
       setLoadingAnnouncements(false);
     }
   }
+const handleContactJobReferralAlumni = async (job) => {
+  try {
+    // First, we need to get the alumni details from the job referral
+    // Since the job has postedBy (email) and postedByName, we need to fetch full alumni profile
+    
+    // Query alumni collection to get full profile using email
+    const alumniQuery = query(
+      collection(db, "alumniProfiles"), 
+      where("email", "==", job.postedBy)
+    );
+    
+    const alumniSnapshot = await getDocs(alumniQuery);
+    
+    if (alumniSnapshot.empty) {
+      alert("Alumni profile not found. Please contact them directly via email.");
+      return;
+    }
+    
+    const alumniDoc = alumniSnapshot.docs[0];
+    const alumniData = { id: alumniDoc.id, ...alumniDoc.data() };
+    
+    // Navigate to personal chat with the alumni data
+    navigate("/personal-chat", { 
+      state: { 
+        alumni: {
+          id: alumniData.id,
+          name: alumniData.name || job.postedByName,
+          email: job.postedBy,
+          profilePicture: alumniData.profilePicture || defaultProfilePicture,
+          workPosition: alumniData.workPosition || "Not specified",
+          workingDomain: alumniData.workingDomain || "Not specified",
+          location: alumniData.location || "Not specified",
+          experience: alumniData.experience || "0",
+          // Additional context about the job referral
+          jobContext: {
+            jobTitle: job.title,
+            company: job.company,
+            location: job.location
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching alumni details:", error);
+    alert("Error loading alumni profile. Please try again.");
+  }
+};
 
   // --- Fetch Donations ---
   async function fetchDonations() {
@@ -153,6 +205,19 @@ export default function InstitutionalDashboard() {
     }
   }
 
+  // --- Fetch Job Referrals ---
+  async function fetchJobReferrals() {
+    setLoadingJobReferrals(true);
+    try {
+      const q = query(collection(db, "jobOpenings"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      setJobReferrals(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (error) {
+      console.error("Error fetching job referrals:", error);
+    } finally {
+      setLoadingJobReferrals(false);
+    }
+  }
   // --- Fetch Interested Alumni ---
   async function fetchInterestedAlumni() {
     setLoadingAlumni(true);
@@ -171,6 +236,24 @@ export default function InstitutionalDashboard() {
       setLoadingAlumni(false);
     }
   }
+
+  // --- Handle Contact Alumni ---
+  const handleContactAlumni = (alumni) => {
+    navigate("/personal-chat", { 
+      state: { 
+        alumni: {
+          id: alumni.id,
+          name: alumni.name,
+          email: alumni.email,
+          profilePicture: alumni.profilePicture,
+          workPosition: alumni.workPosition,
+          workingDomain: alumni.workingDomain,
+          location: alumni.location,
+          experience: alumni.experience
+        }
+      }
+    });
+  };
 
   // --- Add Announcement ---
   const handleAnnouncementSubmit = async (e) => {
@@ -364,6 +447,7 @@ export default function InstitutionalDashboard() {
         <button style={tabButtonStyle(activeTab === "announcements")} onClick={() => setActiveTab("announcements")}>Event Announcements</button>
         <button style={tabButtonStyle(activeTab === "donations")} onClick={() => setActiveTab("donations")}>Donation Campaigns</button>
         <button style={tabButtonStyle(activeTab === "jobs")} onClick={() => setActiveTab("jobs")}>Job Opportunities</button>
+        <button style={tabButtonStyle(activeTab === "referrals")} onClick={() => setActiveTab("referrals")}>Alumni Job Referrals</button>
         <button style={tabButtonStyle(activeTab === "techtalk")} onClick={() => setActiveTab("techtalk")}>Alumni Interested in Events</button>
       </div>
 
@@ -493,6 +577,108 @@ export default function InstitutionalDashboard() {
           </div>
         )}
 
+        {/* Alumni Job Referrals Tab */}
+        {activeTab === "referrals" && (
+          <div>
+            <div style={cardStyle}>
+              <h2>Alumni Job Referrals ({jobReferrals.length})</h2>
+              <p style={{ color: "#6b7280", marginBottom: "1rem" }}>
+                Job openings posted by alumni to help fellow graduates find opportunities.
+              </p>
+            </div>
+
+            {loadingJobReferrals && <p>Loading job referrals...</p>}
+            
+            {jobReferrals.length === 0 && !loadingJobReferrals && (
+              <div style={cardStyle}>
+                <p>No job referrals posted by alumni yet.</p>
+              </div>
+            )}
+
+            {jobReferrals.map((job) => (
+              <div key={job.id} style={cardStyle}>
+                <div style={{ marginBottom: "1rem" }}>
+                  <h3 style={{ fontSize: "1.5rem", fontWeight: "600", color: "#1f2937", marginBottom: "0.5rem" }}>
+                    {job.title}
+                  </h3>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "0.5rem" }}>
+                    <p style={{ margin: 0, color: "#3b82f6", fontWeight: "600", fontSize: "1.1rem" }}>
+                      🏢 {job.company}
+                    </p>
+                    <p style={{ margin: 0, color: "#6b7280" }}>
+                      📍 {job.location || "Location not specified"}
+                    </p>
+                    <p style={{ margin: 0, color: "#6b7280" }}>
+                      💼 {job.experience}
+                    </p>
+                  </div>
+                  <div style={{ fontSize: "0.9rem", color: "#9ca3af", marginBottom: "1rem" }}>
+                    Posted by: {job.postedByName || job.postedBy} | 
+                    {job.createdAt?.toDate ? ` ${job.createdAt.toDate().toLocaleDateString()}` : " Recently"}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: "1rem" }}>
+                  <h4 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "0.5rem", color: "#374151" }}>
+                    Job Description:
+                  </h4>
+                  <p style={{ 
+                    color: "#6b7280", 
+                    lineHeight: "1.6",
+                    backgroundColor: "#f9fafb",
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    border: "1px solid #e5e7eb",
+                    whiteSpace: "pre-wrap"
+                  }}>
+                    {job.description || "No description provided"}
+                  </p>
+                </div>
+
+                <div style={{ 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "1rem"
+                }}>
+                  <div style={{ 
+                    display: "flex", 
+                    gap: "2rem", 
+                    flexWrap: "wrap"
+                  }}>
+                    <div style={{ fontSize: "0.9rem", color: "#6b7280" }}>
+                      <strong>Status:</strong> {job.isActive !== false ? "Active" : "Inactive"}
+                    </div>
+                    <div style={{ fontSize: "0.9rem", color: "#6b7280" }}>
+                      <strong>Contact:</strong> {job.postedBy}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                   <button
+  style={{
+    backgroundColor: "#10b981",
+    color: "white",
+    padding: "0.5rem 1rem",
+    border: "none",
+    borderRadius: "0.5rem",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.9rem"
+  }}
+  onClick={() => handleContactJobReferralAlumni(job)} // Updated onClick
+>
+  Contact Alumni
+</button>
+                    
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Alumni Interested in Events Tab */}
         {activeTab === "techtalk" && (
           <div>
@@ -576,10 +762,7 @@ export default function InstitutionalDashboard() {
                       padding: "0.5rem 1rem",
                       fontSize: "0.9rem"
                     }}
-                    onClick={() => {
-                      // You can implement contact functionality here
-                      window.open(`mailto:${alumni.email}?subject=Tech Talk Invitation&body=Hello ${alumni.name}, we would like to invite you to host a tech talk at our college.`);
-                    }}
+                    onClick={() => handleContactAlumni(alumni)}
                   >
                     Contact
                   </button>

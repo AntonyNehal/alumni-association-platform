@@ -40,6 +40,19 @@ const { currentUser } = useAuth(); // Add this to get current user
 
     fetchData();
   }, []);
+  useEffect(() => {
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/payment-button.js";
+        script.dataset.payment_button_id = "pl_RLUcwxgBEI1zJ0"; // your friend's button ID
+        script.async = true;
+      
+        const form = document.getElementById("razorpay-payment-form");
+        if (form) form.appendChild(script);
+      
+        return () => {
+          if (form) form.removeChild(script);
+        };
+      }, []);
 
   const handleDonate = (donation) => {
     setSelectedDonation(donation);
@@ -217,20 +230,22 @@ useEffect(() => {
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '0.5rem' }}>{donation.title}</h3>
                 <p style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1rem' }}>{donation.description}</p>
                 <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ width: '100%', height: '12px', backgroundColor: '#e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ width: `${(donation.currentAmount / donation.targetAmount) * 100}%`, height: '100%', background: 'linear-gradient(45deg, #10b981, #059669)', transition: 'width 0.3s ease' }}></div>
-                  </div>
+                  
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                    <span>{((donation.currentAmount / donation.targetAmount) * 100).toFixed(1)}% completed</span>
+                   
                     <span>Deadline: {donation.deadline && new Date(donation.deadline).toLocaleDateString('en-IN')}</span>
                   </div>
                 </div>
-                {donation.isActive && <button style={donateButtonStyle} onClick={() => handleDonate(donation)}>Donate Now</button>}
+                {donation.isActive && <button style={donateButtonStyle} onClick={() => handleDonate(donation)}>Donate with link below</button>}
               </div>
             </div>
           ))}
         </div>
       </div>
+       <div style={{ padding: "2rem", textAlign: "center" }}>
+  <h2 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Support Us / Donate</h2>
+  <form id="razorpay-payment-form"></form>
+</div>
 
       {/* Donation Modal */}
       {selectedDonation && (
