@@ -485,7 +485,7 @@ export default function InstitutionalDashboard() {
                   <div key={app.id} style={{ marginBottom: "0.5rem", padding: "0.5rem", border: "1px solid #e5e7eb", borderRadius: "0.5rem" }}>
                     <p><b>Name:</b> {app.alumniName}</p>
                     <p><b>Email:</b> {app.alumniEmail}</p>
-                    <a href={app.resumeUrl} target="_blank" rel="noreferrer">View Resume</a>
+                    <a href={app.fileUrl} target="_blank" rel="noreferrer">View Resume</a>
                   </div>
                 ))}
               </div>
